@@ -229,7 +229,8 @@ function avatar(id, size = "") {
   const name = u?.displayName ?? "?";
   const initials = name.replace(/\(.*\)/, "").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const img = u?.avatar ? `<img src="${esc(u.avatar)}" alt="" loading="lazy" onerror="this.remove()">` : "";
-  return `<span class="avatar ${size}" style="--c:${u?.color ?? "#5b6780"}">${esc(initials)}${img}</span>`;
+  const fr = FRAMES[u?.style?.frame] ? ` fr-${u.style.frame}` : "";
+  return `<span class="avatar ${size}${fr}" style="--c:${u?.color ?? "#5b6780"}">${esc(initials)}${img}</span>`;
 }
 
 function toast(msg) {
@@ -825,12 +826,11 @@ function viewAuth() {
              <label>Username<input name="username" id="f-user" autocomplete="username" placeholder="jaybuckets" required pattern="[A-Za-z0-9_.]{3,20}"></label>
              <label>Display name<input name="displayName" id="f-dname" placeholder="What the squad calls you" required></label>
              <label>Password<input name="password" id="f-npass" type="password" autocomplete="new-password" minlength="6" required></label>
-             <label>Profile pic <span class="muted">(optional, add it later if you want)</span><input name="photo" id="f-photo" type="file" accept="image/*"></label>
              <button class="btn primary block big">Create account</button>`}
       </form>`;
   }
   return `
-  <div class="auth" style="--img:url('${IMG.ball}')">
+  <div class="auth ${login || phoneMode || forgotMode ? "" : "is-signup"}" style="--img:url('${IMG.ball}')">
     <div class="auth-panel">
       <div class="lockup"><img class="logo-full" src="${IMG.logo}" alt="Who Cooked"></div>
       <h1 class="auth-h">Every run, rated by the people who were there.</h1>
@@ -915,7 +915,7 @@ function bindAuth() {
         await store.signIn({ login: f.login.value, password: f.password.value });
       } else {
         const u = await store.signUp({ username: f.username.value, displayName: f.displayName.value, password: f.password.value, email: f.email?.value });
-        if (f.photo.files[0]) {
+        if (f.photo?.files?.[0]) {
           try { await store.uploadAvatar(u.id, f.photo.files[0]); } catch (err) { toast(err.message); }
         }
       }
@@ -927,7 +927,7 @@ function bindAuth() {
 /* Arrived from a password-reset email: choose a new password. */
 function viewNewPassword() {
   return `
-  <div class="auth" style="--img:url('${IMG.ball}')">
+  <div class="auth ${login || phoneMode || forgotMode ? "" : "is-signup"}" style="--img:url('${IMG.ball}')">
     <div class="auth-panel">
       <div class="lockup"><img class="logo-full" src="${IMG.logo}" alt="Who Cooked"></div>
       <h1 class="auth-h">Pick a new password</h1>
@@ -959,7 +959,7 @@ function bindNewPassword() {
 function viewSetup() {
   const u = state.me;
   return `
-  <div class="auth" style="--img:url('${IMG.ball}')">
+  <div class="auth ${login || phoneMode || forgotMode ? "" : "is-signup"}" style="--img:url('${IMG.ball}')">
     <div class="auth-panel">
       <h1 class="auth-h">You're in. Pick the name your squad will see.</h1>
       <form id="setup-form" class="stack">
@@ -998,13 +998,18 @@ function bindSetup() {
    ============================================================ */
 
 const PRO_PERKS = [
-  ["x", "No ads", "Free players see a small sponsored spot on the feed and leaderboard. Pro hides it."],
-  ["target", "Rate the opposition", "Rate the other team too. It shows as a separate opponent rating on the game."],
-  ["chart", "Rating trend", "See every rating you've ever had on one chart, plus your best game."],
+  ["star", "Avatar frames", "Gold, flame, ice or neon ring around your picture, everywhere it shows up."],
+  ["user", "Custom profile", "Pick your profile color, add a tagline and your jersey number."],
+  ["check", "Pro badge", "A PRO tag next to your name on your profile."],
+  ["chart", "Rating trend", "Every rating you've ever had on one chart, plus your best game."],
   ["calendar", "Season recaps", "Month by month: games, record, average rating, MOTMs and your best night."],
-  ["users", "Head to head", "Your record with and against any friend, and who rates higher when you share the pitch."],
-  ["grid", "Stats by sport", "Per-game averages for every sport you play."],
+  ["x", "No ads", "Free players see a small sponsored spot on the feed and leaderboard. Pro hides it."],
 ];
+
+// Pro profile customization options.
+const FRAMES = { gold: "Gold", flame: "Flame", ice: "Ice", neon: "Neon" };
+const THEMES = { blue: "#2f6bff", red: "#ef4444", green: "#22c55e", gold: "#f5b301", purple: "#a855f7", orange: "#ff7a1a", teal: "#14b8a6" };
+const styleOf = (id) => user(id)?.style || {};
 
 // In the iPhone app, Pro stays hidden until real payments are switched on (no "preview" for App Review).
 const proOffered = () => billing.enabled || !isNative();
@@ -1604,7 +1609,7 @@ function viewGame(id) {
          <div class="progress"><span style="width:${Math.min(100, (cast / Math.max(1, need)) * 100).toFixed(0)}%"></span></div>`
       : "";
     if (!mySide) {
-      rateBlock = voting ? `<section class="panel pad">${statusLine}<p class="muted small">Only players in this game vote. Everyone rates their own teammates and the ref.${proOffered() ? " Pro players can also rate the other team, shown separately." : ""}</p></section>` : "";
+      rateBlock = voting ? `<section class="panel pad">${statusLine}<p class="muted small">Only players in this game vote. Everyone rates their own teammates and the ref, and can rate the other team too (shown separately).</p></section>` : "";
     } else if (!voting) {
       const mine = targets.filter((t) => myVote(g, t.target)).length;
       rateBlock = `<section class="panel pad closed"><h3>Voting closed</h3><p class="muted small">${mine ? `You rated ${mine} of ${targets.length}.` : "You didn't vote in this one."} A game rating counts once at least ${MIN_VOTES} people have voted.</p></section>`;
@@ -1615,15 +1620,15 @@ function viewGame(id) {
       <section class="panel pad" id="rate">
         ${statusLine}
         <h3>Rate your team${g.ref && g.ref.userId !== meId() ? " and the ref" : ""}</h3>
-        <p class="muted small">You only rate your own side. Drag, or tap the minus and plus to move by 0.1. Anywhere from 0.1 to 10. Around 6.0 is an average run, 7 is solid, 8 is cooking, 9 means somebody got cooked.</p>
+        <p class="muted small">Your teammates' ratings set their main score. Drag, or tap the minus and plus to move by 0.1. Anywhere from 0.1 to 10. Around 6.0 is an average run, 7 is solid, 8 is cooking, 9 means somebody got cooked.</p>
         <form id="rate-form" class="rate-list">
-          ${[...targets, ...(billing.isPro() ? oppTargets(g, meId()) : [])].map(({ target, opp }, i, all) => {
+          ${[...targets, ...oppTargets(g, meId())].map(({ target, opp }, i, all) => {
             const mine = myVote(g, target);
             const v = mine ? mine.score : 6.5;
             const isRef = target === "ref";
             const name = isRef ? (g.ref.userId ? uname(g.ref.userId) : g.ref.name) : uname(target);
             const sub = isRef ? "Referee" : statLine(g.sport, g.stats?.[target]) || slotLabel(teamObj(g, opp ? (mySide === "A" ? "B" : "A") : mySide), target) || "";
-            const head = opp && !all[i - 1]?.opp ? `<div class="opp-head"><h4>Rate the other team</h4><span class="pro-tag">PRO</span><small class="muted">Shown as a separate opponent rating. It doesn't change their main rating or MOTM.</small></div>` : "";
+            const head = opp && !all[i - 1]?.opp ? `<div class="opp-head"><h4>Rate the other team</h4><small class="muted">Optional. Shown as a separate opponent rating. It doesn't change their main rating or MOTM.</small></div>` : "";
             return `${head}
             <div class="rate-row ${isRef ? "is-ref" : ""} ${opp ? "is-opp" : ""}">
               ${isRef ? (g.ref.userId ? avatar(g.ref.userId) : `<span class="avatar whistle">${icon("whistle")}</span>`) : avatar(target)}
@@ -1637,7 +1642,6 @@ function viewGame(id) {
               <span class="badge ${ratingClass(v)} live" data-for="${target}">${fmt(v)}</span>
             </div>`;
           }).join("")}
-          ${proOffered() && !billing.isPro() && oppTargets(g, meId()).length ? `<div class="opp-lock"><div><b>Rate the other team</b> <span class="pro-tag">PRO</span><small class="muted">Think their striker cooked? Pro lets you rate the opposition too.</small></div><a class="btn" href="#/plans">Unlock</a></div>` : ""}
           <button class="btn primary block" type="submit">${targets.every((t) => myVote(g, t.target)) ? "Update my votes" : "Submit my votes"}</button>
         </form>
       </section>`;
@@ -1779,7 +1783,7 @@ function bindGame(id) {
     }));
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const allowed = new Set([...rateTargets(g, meId()), ...(billing.isPro() ? oppTargets(g, meId()) : [])].map((t) => t.target));
+      const allowed = new Set([...rateTargets(g, meId()), ...oppTargets(g, meId())].map((t) => t.target));
       act($("button[type=submit]", form), async () => {
         if (!votingOpen(g)) throw new Error("Voting has closed for this game.");
         const list = $$('input[type="range"]', form)
@@ -2255,7 +2259,7 @@ function viewProfile(id) {
   })();
   const pro = billing.isPro();
   const seasons = [...new Set(s.games.map((x) => seasonKey(x.g.date)))].sort().reverse().map((k) => ({ key: k, s: playerSummary(id, "all", k) }));
-  const h2h = mine || !pro ? null : headToHead(meId(), id);
+  const h2h = mine ? null : headToHead(meId(), id);
   const badges = BADGES.map((b) => ({ ...b, earned: b.test(s) }));
   const earned = badges.filter((b) => b.earned).length;
   const sportRows = Object.entries(s.bySport).map(([sp, d]) => {
@@ -2268,11 +2272,12 @@ function viewProfile(id) {
 
   return `
   <a class="back" href="#/squad">Squad</a>
-  <section class="profile-head" style="--img:url('${IMG.hero}')">
+  <section class="profile-head ${THEMES[styleOf(id).theme] ? "themed" : ""}" style="--img:url('${IMG.hero}');${THEMES[styleOf(id).theme] ? `--accent:${THEMES[styleOf(id).theme]}` : ""}">
     <div class="ph-avatar">${avatar(id, "xxl")}
       ${mine ? `<label class="photo-btn" title="Change profile pic">${icon("camera")}<input type="file" id="avatar-file" accept="image/*" hidden></label>` : ""}</div>
     <div class="grow">
-      <h1>${esc(u.displayName)}</h1>
+      <h1>${esc(u.displayName)}${styleOf(id).number != null && styleOf(id).number !== "" ? `<span class="jersey">#${esc(styleOf(id).number)}</span>` : ""}${styleOf(id).pro ? `<span class="pro-tag ph-pro">PRO</span>` : ""}</h1>
+      ${styleOf(id).title ? `<p class="ph-title">${esc(styleOf(id).title)}</p>` : ""}
       ${meta(`@${esc(u.username)}`, together && together.total ? `${together.total} games together, ${together.same} as teammates` : "")}
       ${mine ? "" : `<div class="ph-actions">${isBlocked(id) ? "" : friendButton(id)}
         <button class="btn quiet small" id="report-user">${icon("flag")} Report</button>
@@ -2304,12 +2309,13 @@ function viewProfile(id) {
       <button type="button" class="btn quiet danger" id="signout">Log out</button>
     </form>
   </section>
+  ${customizePanel(id, pro)}
   ${!proOffered() ? "" : `<section class="panel pad">
     <div class="block-head tight"><h3>Plan</h3>${pro ? `<span class="pro-tag">PRO</span>` : ""}</div>
     ${(() => {
       const a = billing.activeLabel();
       if (!billing.enabled) return `<p class="muted small">${pro ? "Previewing Pro on this device." : "Free plan."} <a class="inline-link" href="#/plans">${pro ? "Pro settings" : "See what Pro adds"}</a></p>`;
-      if (!a) return `<p class="muted small">Free plan. Rating trend, season recaps, head to head and stats by sport come with Pro. <a class="inline-link" href="#/plans">Go Pro</a></p>`;
+      if (!a) return `<p class="muted small">Free plan. Avatar frames, a custom profile, rating trend and season recaps come with Pro. <a class="inline-link" href="#/plans">Go Pro</a></p>`;
       const url = billing.manageUrl();
       return `<p>${esc(a.plan)} plan${a.trial ? ", free trial" : ""}${a.expires ? `<span class="muted small">, ${a.renews ? "renews" : "ends"} ${new Date(a.expires).toLocaleDateString()}</span>` : ""}</p>
         <div class="inline mt">${url && a.plan !== "Lifetime" ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Manage or cancel</a>` : ""}<a class="btn quiet" href="#/plans">Plans</a></div>`;
@@ -2342,7 +2348,7 @@ function viewProfile(id) {
         ${meta(esc(relDate(s.best.g.date)), esc(statLine(s.best.g.sport, s.best.stats)))}</div></a>` : `<p class="muted">Shows up after a revealed game with at least ${MIN_VOTES} votes.</p>`}
     </section>`}
   </div>
-  ${mine ? "" : !pro ? proLock(`Head to head with ${esc(firstName(id))}`, "Your record together and against each other, and who rates higher when you share the pitch.") : h2hPanel(id, h2h)}
+  ${mine ? "" : h2hPanel(id, h2h)}
   ${seasons.length ? !pro ? proLock("Season recaps", "Month by month: games, record, average rating, MOTMs and best night.") : `
   <section class="panel pad">
     <div class="block-head tight"><h3>Season recaps</h3><span class="pro-tag">PRO</span></div>
@@ -2351,7 +2357,7 @@ function viewProfile(id) {
       <tbody>${seasons.map(({ key, s: x }) => `<tr><td>${esc(seasonLabel(key))}</td><td>${x.games.length}</td><td>${x.wins}-${x.losses}${x.draws ? "-" + x.draws : ""}</td><td>${x.motms}</td><td>${x.best ? fmt(x.best.rating) : "–"}</td><td>${badge(x.avg)}</td></tr>`).join("")}</tbody>
     </table></div>
   </section>` : ""}
-  ${sportRows ? !pro ? proLock("Stats by sport", "Per-game averages for every sport you play.") : `<section class="panel pad"><div class="block-head tight"><h3>By sport</h3><span class="pro-tag">PRO</span></div>${sportRows}</section>` : ""}
+  ${sportRows ? `<section class="panel pad"><div class="block-head tight"><h3>By sport</h3></div>${sportRows}</section>` : ""}
   ${comingUp.length ? `
   <section class="panel pad">
     <h3>Coming up</h3>
@@ -2381,7 +2387,56 @@ function viewProfile(id) {
   </section>`;
 }
 
+// Pro: avatar frame, profile color, tagline, jersey number. Hidden in the iPhone app until payments are live.
+function customizePanel(id, pro) {
+  if (!proOffered()) return "";
+  const st = styleOf(id);
+  const locked = !pro;
+  return `
+  <section class="panel pad customize ${locked ? "locked" : ""}">
+    <div class="block-head tight"><h3>Customize your profile</h3><span class="pro-tag">PRO</span></div>
+    <form id="style-form" class="stack">
+      <div>
+        <h4>Avatar frame</h4>
+        <div class="frame-pick">
+          <label class="fp"><input type="radio" name="frame" value="" ${!st.frame ? "checked" : ""} ${locked ? "disabled" : ""}>${avatar(id, "lg").replace(/ fr-\w+/, "")}<small>None</small></label>
+          ${Object.entries(FRAMES).map(([k, l]) => `<label class="fp"><input type="radio" name="frame" value="${k}" ${st.frame === k ? "checked" : ""} ${locked ? "disabled" : ""}>${avatar(id, "lg").replace(/ fr-\w+/, "").replace('class="avatar lg', `class="avatar lg fr-${k}`)}<small>${l}</small></label>`).join("")}
+        </div>
+      </div>
+      <div>
+        <h4>Profile color</h4>
+        <div class="theme-pick">
+          <label class="tp"><input type="radio" name="theme" value="" ${!st.theme ? "checked" : ""} ${locked ? "disabled" : ""}><span class="sw none"></span></label>
+          ${Object.entries(THEMES).map(([k, c]) => `<label class="tp" title="${k}"><input type="radio" name="theme" value="${k}" ${st.theme === k ? "checked" : ""} ${locked ? "disabled" : ""}><span class="sw" style="background:${c}"></span></label>`).join("")}
+        </div>
+      </div>
+      <div class="cust-row">
+        <label>Tagline<input name="title" maxlength="32" placeholder="Midfield maestro" value="${esc(st.title || "")}" ${locked ? "disabled" : ""}></label>
+        <label>Jersey #<input name="number" type="number" min="0" max="99" inputmode="numeric" placeholder="10" value="${esc(st.number ?? "")}" ${locked ? "disabled" : ""}></label>
+      </div>
+      ${locked ? `<a class="btn primary block" href="#/plans">Unlock with Pro</a>` : `<button class="btn primary block">Save look</button>`}
+    </form>
+  </section>`;
+}
+
 function bindProfile(id) {
+  $("#style-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!billing.isPro()) { location.hash = "#/plans"; return; }
+    const f = e.target;
+    const num = f.number.value === "" ? null : Math.max(0, Math.min(99, parseInt(f.number.value, 10) || 0));
+    const style = { pro: true, frame: f.frame.value || null, theme: f.theme.value || null, title: f.title.value.trim().slice(0, 32) || null, number: num };
+    for (const k of Object.keys(style)) if (style[k] == null) delete style[k];
+    act($("button.primary", f), async () => { await store.updateProfile(id, { style }); await reload(); rerenderKeepScroll(); toast("Looking fresh"); });
+  });
+  // Live preview while picking a frame or color.
+  $$("#style-form input[name=frame], #style-form input[name=theme]").forEach((r) => r.addEventListener("change", () => {
+    const f = $("#style-form"); const head = $(".profile-head");
+    const c = THEMES[f.theme.value];
+    head.classList.toggle("themed", !!c); if (c) head.style.setProperty("--accent", c); else head.style.removeProperty("--accent");
+    const av = $(".ph-avatar .avatar"); if (av) { av.className = av.className.replace(/ ?fr-\w+/g, "") + (f.frame.value ? ` fr-${f.frame.value}` : ""); }
+  }));
+
   bindFriendButtons($("#main"));
   const armed = (btn, label, run) => btn?.addEventListener("click", () => {
     if (!btn.dataset.armed) {

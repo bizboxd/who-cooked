@@ -53,7 +53,7 @@ export async function squareImage(file, size = 384) {
   }
 }
 
-const publicUser = (u) => ({ id: u.id, username: u.username, displayName: u.displayName, avatar: u.avatar || null, color: u.color });
+const publicUser = (u) => ({ id: u.id, username: u.username, displayName: u.displayName, avatar: u.avatar || null, color: u.color, style: u.style || {} });
 
 /* =====================================================================
    Local (demo) store
@@ -143,6 +143,7 @@ class LocalStore {
   async updateProfile(id, patch) {
     const u = this.db.users.find((x) => x.id === id);
     if (patch.displayName != null) u.displayName = patch.displayName.trim() || u.username;
+    if (patch.style != null) u.style = structuredClone(patch.style);
     this.#save();
   }
   async uploadAvatar(id, file) {
@@ -368,7 +369,7 @@ class SupabaseStore {
     return data;
   }
   #user(r) {
-    return { id: r.id, username: r.username, displayName: r.display_name, avatar: r.avatar_url, color: r.color, needsSetup: r.onboarded === false };
+    return { id: r.id, username: r.username, displayName: r.display_name, avatar: r.avatar_url, color: r.color, style: r.style || {}, needsSetup: r.onboarded === false };
   }
   #game(r) {
     return {
@@ -437,7 +438,10 @@ class SupabaseStore {
     return this.#ok(await this.sb.from("profiles").select("*").order("created_at")).map((r) => this.#user(r));
   }
   async updateProfile(id, patch) {
-    this.#ok(await this.sb.from("profiles").update({ display_name: patch.displayName }).eq("id", id));
+    const row = {};
+    if (patch.displayName != null) row.display_name = patch.displayName;
+    if (patch.style != null) row.style = patch.style;
+    this.#ok(await this.sb.from("profiles").update(row).eq("id", id));
   }
   async uploadAvatar(id, file) {
     const { blob } = await squareImage(file, 384);

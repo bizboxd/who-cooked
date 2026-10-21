@@ -803,3 +803,43 @@ input[type="date"], input[type="time"] { width: 100%; -webkit-appearance: none; 
 @media (hover: none), (max-width: 760px) {
   input:not(.tscore):not([type=range]):not([type=checkbox]), select, textarea { font-size: 16px !important; }
 }
+
+/* ---------- Pro profile customization ---------- */
+.avatar.fr-gold { box-shadow: 0 0 0 2px #000, 0 0 0 4px #f5b301, 0 0 14px rgba(245, 179, 1, .45); }
+.avatar.fr-flame { box-shadow: 0 0 0 2px #000, 0 0 0 4px #ff5a1f, 0 0 16px rgba(255, 90, 31, .6); }
+.avatar.fr-ice { box-shadow: 0 0 0 2px #000, 0 0 0 4px #7dd3fc, 0 0 16px rgba(125, 211, 252, .55); }
+.avatar.fr-neon { box-shadow: 0 0 0 2px #000, 0 0 0 4px #a3e635, 0 0 18px rgba(163, 230, 53, .6); }
+.avatar.xs.fr-gold, .avatar.xs.fr-flame, .avatar.xs.fr-ice, .avatar.xs.fr-neon { box-shadow: 0 0 0 1.5px #000, 0 0 0 3px var(--fr, #f5b301); }
+.avatar.xs.fr-flame { --fr: #ff5a1f; } .avatar.xs.fr-ice { --fr: #7dd3fc; } .avatar.xs.fr-neon { --fr: #a3e635; }
+.profile-head.themed { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 38%, transparent), rgba(0,0,0,.85) 60%), #000 var(--img) center / cover; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.profile-head.themed .ovr .badge { box-shadow: 0 0 0 2px var(--accent); }
+.jersey { display: inline-block; margin-left: 10px; font-size: .55em; vertical-align: middle; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,.12); color: #fff; letter-spacing: .02em; }
+.ph-pro { margin-left: 8px; vertical-align: middle; font-size: 12px; }
+.ph-title { margin: 2px 0 6px; color: #dbe4f5; font-weight: 600; }
+.customize.locked .frame-pick, .customize.locked .theme-pick, .customize.locked .cust-row { opacity: .55; }
+.frame-pick { display: flex; flex-wrap: wrap; gap: 14px; }
+.fp, .tp { position: relative; display: grid; justify-items: center; gap: 6px; cursor: pointer; }
+.fp input, .tp input { position: absolute; opacity: 0; pointer-events: none; }
+.fp small { color: var(--muted); font-size: 12px; }
+.fp input:checked ~ small { color: var(--text); font-weight: 700; }
+.fp:has(input:checked) .avatar { outline: 2px dashed var(--blue); outline-offset: 7px; }
+.theme-pick { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw { width: 32px; height: 32px; border-radius: 50%; display: block; border: 2px solid transparent; }
+.sw.none { background: repeating-linear-gradient(45deg, #1b2232 0 6px, #0f1420 6px 12px); border-color: var(--line2); }
+.tp input:checked + .sw { border-color: #fff; box-shadow: 0 0 0 2px var(--blue); }
+.cust-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 12px; }
+
+/* Sign-in screens fill the screen exactly (no empty scroll), and Create account fits without scrolling on phones. */
+.auth { min-height: calc(100dvh - env(safe-area-inset-top, 0px)); padding-block: 24px max(24px, env(safe-area-inset-bottom, 0px)); }
+@supports not (height: 100dvh) { .auth { min-height: calc(100vh - env(safe-area-inset-top, 0px)); } }
+@media (max-width: 700px) {
+  .auth-panel { gap: 11px; }
+  .logo-full { width: min(200px, 55%); }
+  .auth-h { font-size: clamp(32px, 9vw, 40px); margin: 4px 0 2px; }
+  .auth.is-signup .auth-h { display: none; }
+  .auth .stack { gap: 10px; }
+  .auth label { gap: 4px; }
+  .auth input { padding-top: 11px; padding-bottom: 11px; }
+}
+@media (max-width: 700px) and (max-height: 700px) { .auth-h { display: none; } }
+body.signed-out { padding-bottom: 0 !important; min-height: 0; }

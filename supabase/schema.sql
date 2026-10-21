@@ -606,3 +606,7 @@ create index if not exists games_public_idx on public.games (is_public, played_o
 
 alter table public.rsvps drop constraint if exists rsvps_status_check;
 alter table public.rsvps add constraint rsvps_status_check check (status in ('in', 'out', 'maybe'));
+-- Pro profile customization: { frame, theme, title, number }.
+alter table public.profiles add column if not exists style jsonb not null default '{}'::jsonb;
+alter table public.profiles drop constraint if exists profiles_style_size;
+alter table public.profiles add constraint profiles_style_size check (pg_column_size(style) < 2048);
