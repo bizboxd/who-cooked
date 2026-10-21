@@ -12,7 +12,7 @@ window.BUT_CONFIG = {
   AUTH: {
     APPLE_IOS: true,  // native Sign in with Apple in the iPhone app (Supabase Apple provider: client ID = bundle ID)
     APPLE_WEB: false, // needs an Apple Services ID + key in Supabase
-    GOOGLE: false,    // needs a Google OAuth client in Supabase
+    GOOGLE: true,     // Google Cloud project "Who Cooked" (besu@bizboxd.com), web client in Supabase
     PHONE: false,     // needs an SMS provider (e.g. Twilio) in Supabase
   },
 
