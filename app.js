@@ -2741,4 +2741,5 @@ document.addEventListener("click", (e) => {
     return;
   }
   render();
+  if (store.linkError) toast(store.linkError);
 })();

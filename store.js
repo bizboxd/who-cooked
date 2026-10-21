@@ -289,15 +289,36 @@ class SupabaseStore {
     // The iPhone app bundles the library (window.supabase); the website loads it from the CDN.
     const createClient = window.supabase?.createClient || (await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")).createClient;
     this.native = !!window.Capacitor?.isNativePlatform?.();
+    this.createClient = createClient;
+    // Password-reset links come back with the session in the URL hash (#access_token=...&type=recovery),
+    // which works in any browser. Take it out before the hash router or the auth library sees it.
+    const hp = new URLSearchParams(location.hash.slice(1));
+    const fromLink = hp.get("access_token") ? { access_token: hp.get("access_token"), refresh_token: hp.get("refresh_token"), type: hp.get("type") }
+      : hp.get("error_description") ? { error: hp.get("error_code") === "otp_expired" ? "That reset link has expired or was already used. Request a new one." : hp.get("error_description").replace(/\+/g, " ") } : null;
+    if (fromLink) history.replaceState(null, "", location.pathname + location.search + "#/");
     this.sb = createClient(this.url, this.key, { auth: { flowType: "pkce", detectSessionInUrl: !this.native, persistSession: true } });
     // A password-reset link lands here with ?reset=1 (plus ?code=...); remember it so the app asks for a new password.
     this.recovery = false;
     this.sb.auth.onAuthStateChange((event) => { if (event === "PASSWORD_RECOVERY") this.recovery = true; });
     const qs = new URLSearchParams(location.search);
+    // Email links (password reset, confirm email) carry a one-time token_hash, so they work in whatever
+    // browser opens them, even if the request was made in the iPhone app.
+    this.linkError = fromLink?.error || null;
+    if (fromLink?.access_token) {
+      const { error } = await this.sb.auth.setSession({ access_token: fromLink.access_token, refresh_token: fromLink.refresh_token });
+      if (error) this.linkError = "That reset link has expired or was already used. Request a new one.";
+      else if (fromLink.type === "recovery") this.recovery = true;
+    }
+    if (qs.has("token_hash")) {
+      const type = qs.get("type") || "recovery";
+      const { error } = await this.sb.auth.verifyOtp({ token_hash: qs.get("token_hash"), type });
+      if (error) this.linkError = /expired|invalid/i.test(error.message) ? "That link has expired or was already used. Request a new one." : error.message;
+      else if (type === "recovery") this.recovery = true;
+    }
     // Finish a Google/Apple/reset redirect (?code=...) before the app reads the session, then tidy the URL.
     const { data: sess } = await this.sb.auth.getSession();
     if (qs.has("reset") && sess?.session) this.recovery = true;
-    if (qs.has("code") || qs.has("reset")) history.replaceState(null, "", location.pathname + (location.hash || "#/"));
+    if (qs.has("code") || qs.has("reset") || qs.has("token_hash")) history.replaceState(null, "", location.pathname + (location.hash || "#/"));
     if (this.native) try {
       // In the iPhone app, OAuth runs in the system browser and comes back through the app's URL scheme.
       const App = capPlugin("App");
@@ -425,7 +446,10 @@ class SupabaseStore {
     if (!email) throw new Error("Enter the email you signed up with.");
     // Reset links always open the website, even when asked for from the iPhone app.
     const back = this.native ? SITE_URL : location.origin + location.pathname;
-    this.#ok(await this.sb.auth.resetPasswordForEmail(email, { redirectTo: back + "?reset=1" }));
+    // Request it with the implicit flow so the link signs in wherever it's opened (Safari, Gmail, another phone).
+    // The default PKCE flow only works in the same browser that asked, which broke resets requested in the app.
+    const once = this.createClient(this.url, this.key, { auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "wc-reset" } });
+    this.#ok(await once.auth.resetPasswordForEmail(email, { redirectTo: back + "?reset=1" }));
   }
   async updatePassword(password) {
     if (!password || password.length < 6) throw new Error("Use at least 6 characters.");
