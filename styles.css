@@ -843,3 +843,7 @@ input[type="date"], input[type="time"] { width: 100%; -webkit-appearance: none; 
 }
 @media (max-width: 700px) and (max-height: 700px) { .auth-h { display: none; } }
 body.signed-out { padding-bottom: 0 !important; min-height: 0; }
+
+/* No double-tap zoom anywhere (fast taps on +/- were zooming the page). Pinch zoom still works. */
+html, body, button, a, input, select, textarea, label, .nudge-btn, .qr, .chip { touch-action: manipulation; }
+.nudge-btn { -webkit-user-select: none; user-select: none; }
