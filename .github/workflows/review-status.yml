@@ -31,5 +31,7 @@ jobs:
           for s in subs["data"]:
               a = s["attributes"]; lines.append(f"- {a.get('submittedDate')}: `{a.get('state')}`")
           out = "\n".join(lines); print(out)
+          for l in lines:
+              if l.startswith("- "): print("::notice title=App Store::" + l[2:].replace("*", "").replace("`", ""))
           open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(out + "\n")
           PY
