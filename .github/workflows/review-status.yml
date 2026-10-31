@@ -1,0 +1,35 @@
+# Read-only: prints the App Store review status of Who Cooked using the App Store Connect API key.
+name: App Review status
+on: workflow_dispatch
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query App Store Connect
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          pip install --quiet pyjwt cryptography
+          python3 - <<'PY'
+          import json, os, time, urllib.request, jwt
+          tok = jwt.encode({"iss": os.environ["ISSUER"], "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+                           os.environ["P8"], algorithm="ES256", headers={"kid": os.environ["KEY_ID"], "typ": "JWT"})
+          def get(path):
+              req = urllib.request.Request("https://api.appstoreconnect.apple.com" + path, headers={"Authorization": f"Bearer {tok}"})
+              with urllib.request.urlopen(req) as r: return json.loads(r.read())
+          APP = "6823302773"
+          lines = ["## Who Cooked: App Store status", ""]
+          vers = get(f"/v1/apps/{APP}/appStoreVersions?filter[platform]=IOS&limit=5&include=build")
+          builds = {b["id"]: b["attributes"].get("version") for b in vers.get("included", []) if b["type"] == "builds"}
+          for v in vers["data"]:
+              a = v["attributes"]; bid = (v["relationships"]["build"].get("data") or {}).get("id")
+              lines.append(f"- Version **{a['versionString']}**: `{a.get('appStoreState')}` (build {builds.get(bid, '?')}, release: {a.get('releaseType')})")
+          subs = get(f"/v1/reviewSubmissions?filter[app]={APP}&limit=5")
+          lines += ["", "### Review submissions"]
+          for s in subs["data"]:
+              a = s["attributes"]; lines.append(f"- {a.get('submittedDate')}: `{a.get('state')}`")
+          out = "\n".join(lines); print(out)
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(out + "\n")
+          PY
