@@ -927,7 +927,7 @@ function bindAuth() {
 /* Arrived from a password-reset email: choose a new password. */
 function viewNewPassword() {
   return `
-  <div class="auth ${login || phoneMode || forgotMode ? "" : "is-signup"}" style="--img:url('${IMG.ball}')">
+  <div class="auth is-signup" style="--img:url('${IMG.ball}')">
     <div class="auth-panel">
       <div class="lockup"><img class="logo-full" src="${IMG.logo}" alt="Who Cooked"></div>
       <h1 class="auth-h">Pick a new password</h1>
@@ -959,7 +959,7 @@ function bindNewPassword() {
 function viewSetup() {
   const u = state.me;
   return `
-  <div class="auth ${login || phoneMode || forgotMode ? "" : "is-signup"}" style="--img:url('${IMG.ball}')">
+  <div class="auth is-signup" style="--img:url('${IMG.ball}')">
     <div class="auth-panel">
       <h1 class="auth-h">You're in. Pick the name your squad will see.</h1>
       <form id="setup-form" class="stack">
@@ -2692,9 +2692,14 @@ window.addEventListener("hashchange", () => {
 // Native Google/Apple sign-in finishes in the system browser and comes back here.
 window.addEventListener("but:auth", async (e) => {
   if (e.detail?.error) toast(e.detail.error);
-  await reload();
-  location.hash = "#/";
-  render();
+  try {
+    await reload();
+    location.hash = "#/";
+    render();
+  } catch (err) {
+    console.error(err);
+    toast(err.message || "Something went wrong signing in. Try again.");
+  }
 });
 
 // In a shared league, pick up new activity every minute while the app is open.
